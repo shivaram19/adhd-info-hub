@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recall Box — Your External Brain</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">🧠</div>
+                <h1>Recall Box</h1>
+            </div>
+            
+            <button class="btn-primary add-btn" onclick="openModal()">
+                <span>+</span> New Entry
+            </button>
+
+            <nav class="nav">
+                <div class="nav-section">
+                    <div class="nav-label">Views</div>
+                    <button class="nav-item active" data-filter="all" onclick="setFilter('all')">
+                        <span class="nav-icon">📋</span> All Items
+                        <span class="count" id="count-all">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="pinned" onclick="setFilter('pinned')">
+                        <span class="nav-icon">📌</span> Pinned
+                        <span class="count" id="count-pinned">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="today" onclick="setFilter('today')">
+                        <span class="nav-icon">⭐</span> Today / Urgent
+                        <span class="count" id="count-today">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="archive" onclick="setFilter('archive')">
+                        <span class="nav-icon">🗄️</span> Archive
+                        <span class="count" id="count-archive">0</span>
+                    </button>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-label">Categories</div>
+                    <button class="nav-item" data-filter="note" onclick="setFilter('note')">
+                        <span class="dot" style="background: #60a5fa;"></span> Notes
+                        <span class="count" id="count-note">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="task" onclick="setFilter('task')">
+                        <span class="dot" style="background: #f87171;"></span> Tasks
+                        <span class="count" id="count-task">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="link" onclick="setFilter('link')">
+                        <span class="dot" style="background: #a78bfa;"></span> Links
+                        <span class="count" id="count-link">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="idea" onclick="setFilter('idea')">
+                        <span class="dot" style="background: #fbbf24;"></span> Ideas
+                        <span class="count" id="count-idea">0</span>
+                    </button>
+                    <button class="nav-item" data-filter="reminder" onclick="setFilter('reminder')">
+                        <span class="dot" style="background: #34d399;"></span> Reminders
+                        <span class="count" id="count-reminder">0</span>
+                    </button>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="storage-info">
+                    <span>💾 Auto-saved locally</span>
+                </div>
+                <button class="btn-text" onclick="exportData()">📤 Export Data</button>
+                <button class="btn-text" onclick="document.getElementById('import-file').click()">📥 Import Data</button>
+                <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <header class="header">
+                <div class="header-search">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search" placeholder="Search anything... (Ctrl+K)" oninput="renderItems()">
+                </div>
+                <div class="header-actions">
+                    <select id="sort-by" onchange="renderItems()">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="due">Due Date</option>
+                        <option value="priority">Priority</option>
+                    </select>
+                </div>
+            </header>
+
+            <div class="content">
+                <div class="content-header">
+                    <h2 id="page-title">All Items</h2>
+                    <p id="page-desc">Everything you've saved</p>
+                </div>
+
+                <div id="items-grid" class="items-grid">
+                    <!-- Items rendered here -->
+                </div>
+
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <div class="empty-icon">📝</div>
+                    <h3>Nothing here yet</h3>
+                    <p>Click "New Entry" to add your first item</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="modal" class="modal" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">New Entry</h3>
+                <button class="btn-close" onclick="closeModal()">×</button>
+            </div>
+            <form id="entry-form" onsubmit="saveEntry(event)">
+                <input type="hidden" id="entry-id">
+                
+                <div class="form-group">
+                    <label>What is it?</label>
+                    <input type="text" id="entry-title" placeholder="e.g., Doctor appointment, Project idea, Important link..." required autofocus>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="entry-category" onchange="updateFormFields()">
+                            <option value="note">📝 Note</option>
+                            <option value="task">✅ Task</option>
+                            <option value="link">🔗 Link</option>
+                            <option value="idea">💡 Idea</option>
+                            <option value="reminder">⏰ Reminder</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="entry-priority">
+                            <option value="low">🟢 Low</option>
+                            <option value="medium" selected>🟡 Medium</option>
+                            <option value="high">🔴 High</option>
+                            <option value="urgent">🔥 Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" id="url-field" style="display: none;">
+                    <label>URL</label>
+                    <input type="url" id="entry-url" placeholder="https://...">
+                </div>
+
+                <div class="form-group" id="due-field">
+                    <label>Due Date (optional)</label>
+                    <input type="datetime-local" id="entry-due">
+                </div>
+
+                <div class="form-group">
+                    <label>Details</label>
+                    <textarea id="entry-content" rows="4" placeholder="Add any details, context, or notes..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Tags (comma separated)</label>
+                    <input type="text" id="entry-tags" placeholder="work, personal, health, urgent...">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

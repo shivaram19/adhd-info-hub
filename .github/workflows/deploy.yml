@@ -1,0 +1,63 @@
+name: Deploy to trelolabs.com
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to VM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/vm_key
+          chmod 600 ~/.ssh/vm_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Rsync code to VM
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no" \
+            --exclude='.git' --exclude='.github' \
+            . ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/adhd-info-hub/
+
+      - name: Deploy on VM
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "=== [ADHD Deploy] Starting deployment ==="
+            cd ~/adhd-info-hub
+
+            # Use HTTP config if no SSL yet
+            if [ ! -f nginx.conf ]; then
+              cp nginx.http.conf nginx.conf
+            fi
+
+            # Build and deploy
+            docker compose down 2>/dev/null || true
+            docker compose up --build -d
+
+            # Health check
+            for i in {1..30}; do
+              if curl -sf http://localhost:8085/ > /dev/null; then
+                echo "=== [ADHD Deploy] Service healthy ==="
+                exit 0
+              fi
+              echo "[ADHD Deploy] Waiting for service... ($i/30)"
+              sleep 2
+            done
+            echo "⚠️ Health check timeout"
+            exit 1
